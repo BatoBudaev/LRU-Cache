@@ -1,37 +1,20 @@
 package main
 
 import (
-	"container/list"
-	"time"
+	"LRU-Cache/internal/cache"
+	"fmt"
 )
 
-type LRUCache struct {
-	capacity int
-	itemList *list.List
-	itemsMap map[any]*list.Element
-}
-
-type item struct {
-	key   any
-	value any
-	ttl   time.Duration
-}
-
-func New(capacity int) *LRUCache {
-	return &LRUCache{capacity: capacity, itemList: list.New(), itemsMap: make(map[any]*list.Element)}
-}
-
-type ICache interface {
-	Cap() int
-	Len() int
-	Clear() // удаляет все ключи
-	Add(key, value any)
-	AddWithTTL(key, value any, ttl time.Duration) // добавляет ключ со сроком жизни ttl
-	Get(key any) (value any, ok bool)
-	Remove(key any)
-}
-
 func main() {
-	cache := New(10)
-
+	c := cache.New(3)
+	fmt.Printf("Cap: %d Len:%d\n", c.Cap(), c.Len())
+	c.Add("asd", 10)
+	c.Add("asd", 10)
+	fmt.Printf("Cap: %d Len:%d\n", c.Cap(), c.Len())
+	c.Add(12, 1)
+	c.Add("qwe", "asd")
+	c.Add("ffff", "123")
+	c.Add(12, 1)
+	fmt.Printf("Cap: %d Len:%d\n", c.Cap(), c.Len())
+	fmt.Println(c)
 }
