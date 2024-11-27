@@ -60,6 +60,15 @@ func (c *LRUCache) Add(key, value any) {
 	c.itemsMap[key] = node
 }
 
+func (c *LRUCache) Get(key any) (value any, ok bool) {
+	if node, ok2 := c.itemsMap[key]; ok2 {
+		c.itemList.MoveToFront(node)
+		return node.Value.(item).value, true
+	}
+
+	return nil, false
+}
+
 func (c *LRUCache) String() string {
 	sb := strings.Builder{}
 
@@ -68,4 +77,25 @@ func (c *LRUCache) String() string {
 	}
 
 	return sb.String()
+}
+
+func (c *LRUCache) Clear() {
+	for k := range c.itemsMap {
+		delete(c.itemsMap, k)
+	}
+
+	for n := c.itemList.Back(); n != nil; n = c.itemList.Back() {
+		c.itemList.Remove(n)
+	}
+}
+
+func (c *LRUCache) Remove(key any) {
+	if node, ok := c.itemsMap[key]; ok {
+		delete(c.itemsMap, key)
+		c.itemList.Remove(node)
+	}
+}
+
+func (c *LRUCache) AddWithTTL(key, value any, ttl time.Duration) {
+
 }
