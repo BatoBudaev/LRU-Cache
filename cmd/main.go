@@ -3,6 +3,7 @@ package main
 import (
 	"LRU-Cache/internal/cache"
 	"fmt"
+	"time"
 )
 
 func main() {
@@ -25,4 +26,10 @@ func main() {
 	c.Add(1, 2)
 	fmt.Println(c)
 	fmt.Printf("Cap: %d Len:%d\n", c.Cap(), c.Len())
+	fmt.Println("________")
+	c.AddWithTTL("ttl", 12, 3)
+	fmt.Println(c)
+	time.Sleep(6 * time.Second)
+	c.Get("ttl")
+	fmt.Println(c)
 }
