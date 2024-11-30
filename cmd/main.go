@@ -17,7 +17,7 @@ func main() {
 	c.Add("ffff", "123")
 	c.Add(12, 1)
 	fmt.Printf("Cap: %d Len:%d\n", c.Cap(), c.Len())
-	c.Clear()
+	//c.Clear()
 	fmt.Println("________")
 	fmt.Println(c)
 	c.Remove("ffff")

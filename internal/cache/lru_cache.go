@@ -65,7 +65,6 @@ func (c *LRUCache) addItem(key, value any, ttl time.Duration, hasTTL bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	//c.RemoveExpired()
 	if node, ok := c.itemsMap[key]; ok {
 		cacheItem := node.Value.(*item)
 		cacheItem.value = value
@@ -98,7 +97,7 @@ func (c *LRUCache) Get(key any) (value any, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.RemoveExpired()
+	//c.RemoveExpired()
 	if node, ok2 := c.itemsMap[key]; ok2 {
 		c.itemsList.MoveToFront(node)
 
@@ -109,10 +108,10 @@ func (c *LRUCache) Get(key any) (value any, ok bool) {
 }
 
 func (c *LRUCache) String() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	c.RemoveExpired()
+	//c.RemoveExpired()
 	sb := strings.Builder{}
 
 	for n := c.itemsList.Front(); n != nil; n = n.Next() {
