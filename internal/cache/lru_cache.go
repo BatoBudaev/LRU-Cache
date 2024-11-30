@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,6 +22,7 @@ type LRUCache struct {
 	capacity  int
 	itemsList *list.List
 	itemsMap  map[any]*list.Element
+	mu        sync.RWMutex
 }
 
 type item struct {
@@ -34,10 +36,16 @@ func New(capacity int) *LRUCache {
 }
 
 func (c *LRUCache) Cap() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	return c.capacity
 }
 
 func (c *LRUCache) Len() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if len(c.itemsMap) == c.itemsList.Len() {
 		return len(c.itemsMap)
 	}
@@ -46,48 +54,79 @@ func (c *LRUCache) Len() int {
 }
 
 func (c *LRUCache) Add(key, value any) {
+	c.addItem(key, value, 0, false)
+}
+
+func (c *LRUCache) AddWithTTL(key, value any, ttl time.Duration) {
+	c.addItem(key, value, ttl, true)
+}
+
+func (c *LRUCache) addItem(key, value any, ttl time.Duration, hasTTL bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	//c.RemoveExpired()
 	if node, ok := c.itemsMap[key]; ok {
+		cacheItem := node.Value.(*item)
+		cacheItem.value = value
+		if hasTTL {
+			cacheItem.Expiration = time.Now().Add(ttl)
+		}
+
 		c.itemsList.MoveToFront(node)
 		return
 	}
 
 	if c.capacity == len(c.itemsMap) {
-		delete(c.itemsMap, c.itemsList.Back().Value.(item).key)
-		c.itemsList.Remove(c.itemsList.Back())
+		backNode := c.itemsList.Back()
+		if backNode != nil {
+			delete(c.itemsMap, backNode.Value.(*item).key)
+			c.itemsList.Remove(backNode)
+		}
 	}
 
-	node := c.itemsList.PushFront(item{key: key, value: value})
+	var expiration time.Time
+	if hasTTL {
+		expiration = time.Now().Add(ttl)
+	}
+
+	node := c.itemsList.PushFront(&item{key: key, value: value, Expiration: expiration})
 	c.itemsMap[key] = node
 }
 
 func (c *LRUCache) Get(key any) (value any, ok bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.RemoveExpired()
 	if node, ok2 := c.itemsMap[key]; ok2 {
-		nodeItem := node.Value.(item)
-		if !nodeItem.Expiration.IsZero() && time.Now().After(nodeItem.Expiration) {
-			delete(c.itemsMap, key)
-			c.itemsList.Remove(node)
-
-			return nil, false
-		}
-
 		c.itemsList.MoveToFront(node)
-		return node.Value.(item).value, true
+
+		return node.Value.(*item).value, true
 	}
 
 	return nil, false
 }
 
 func (c *LRUCache) String() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	c.RemoveExpired()
 	sb := strings.Builder{}
 
 	for n := c.itemsList.Front(); n != nil; n = n.Next() {
-		sb.WriteString(fmt.Sprintf("[%v: %v]\n", n.Value.(item).key, n.Value.(item).value))
+		cacheItem := n.Value.(*item)
+		sb.WriteString(fmt.Sprintf("[%v: %v]\n", cacheItem.key, cacheItem.value))
 	}
 
 	return sb.String()
 }
 
 func (c *LRUCache) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	for k := range c.itemsMap {
 		delete(c.itemsMap, k)
 	}
@@ -98,24 +137,25 @@ func (c *LRUCache) Clear() {
 }
 
 func (c *LRUCache) Remove(key any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if node, ok := c.itemsMap[key]; ok {
 		delete(c.itemsMap, key)
 		c.itemsList.Remove(node)
 	}
 }
 
-func (c *LRUCache) AddWithTTL(key, value any, ttl time.Duration) {
-	if node, ok := c.itemsMap[key]; ok {
-		node.Value.(*item).Expiration = time.Now().Add(ttl)
-		c.itemsList.MoveToFront(node)
-		return
-	}
+func (c *LRUCache) RemoveExpired() {
+	now := time.Now()
+	for node := c.itemsList.Back(); node != nil; {
+		cacheItem := node.Value.(*item)
 
-	if c.capacity == len(c.itemsMap) {
-		delete(c.itemsMap, c.itemsList.Back().Value.(item).key)
-		c.itemsList.Remove(c.itemsList.Back())
+		if !cacheItem.Expiration.IsZero() && now.After(cacheItem.Expiration) {
+			prevNode := node.Prev()
+			delete(c.itemsMap, cacheItem.key)
+			c.itemsList.Remove(node)
+			node = prevNode
+		}
 	}
-
-	node := c.itemsList.PushFront(item{key: key, value: value, Expiration: time.Now().Add(ttl)})
-	c.itemsMap[key] = node
 }
