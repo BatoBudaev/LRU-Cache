@@ -43,8 +43,10 @@ func (c *LRUCache) Cap() int {
 }
 
 func (c *LRUCache) Len() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.removeExpired()
 
 	if len(c.itemsMap) == c.itemsList.Len() {
 		return len(c.itemsMap)
@@ -85,7 +87,7 @@ func (c *LRUCache) addItem(key, value any, ttl time.Duration, hasTTL bool) {
 	}
 
 	var expiration time.Time
-	if hasTTL {
+	if hasTTL && ttl != 0 {
 		expiration = time.Now().Add(ttl)
 	}
 
@@ -97,7 +99,7 @@ func (c *LRUCache) Get(key any) (value any, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	//c.RemoveExpired()
+	c.removeExpired()
 	if node, ok2 := c.itemsMap[key]; ok2 {
 		c.itemsList.MoveToFront(node)
 
@@ -111,7 +113,7 @@ func (c *LRUCache) String() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	//c.RemoveExpired()
+	c.removeExpired()
 	sb := strings.Builder{}
 
 	for n := c.itemsList.Front(); n != nil; n = n.Next() {
@@ -145,7 +147,7 @@ func (c *LRUCache) Remove(key any) {
 	}
 }
 
-func (c *LRUCache) RemoveExpired() {
+func (c *LRUCache) removeExpired() {
 	now := time.Now()
 	for node := c.itemsList.Back(); node != nil; {
 		cacheItem := node.Value.(*item)
@@ -155,6 +157,8 @@ func (c *LRUCache) RemoveExpired() {
 			delete(c.itemsMap, cacheItem.key)
 			c.itemsList.Remove(node)
 			node = prevNode
+		} else {
+			node = node.Prev()
 		}
 	}
 }
