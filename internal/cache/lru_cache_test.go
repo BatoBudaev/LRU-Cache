@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"sync"
 	"testing"
 	"time"
 )
@@ -89,6 +90,33 @@ func TestLRUCache_Remove(t *testing.T) {
 	cache.Remove("key3")
 
 	if cache.Len() != 0 {
+		t.Errorf("Неверная длина: %d != 0", cache.Len())
+	}
+}
+
+func TestLRUCache_Goroutines(t *testing.T) {
+	cache := New(10)
+	var wg sync.WaitGroup
+
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			cache.Add(i, i*i)
+		}(i)
+	}
+
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			cache.Get(i)
+		}(i)
+	}
+
+	wg.Wait()
+
+	if cache.Len() != 10 {
 		t.Errorf("Неверная длина: %d != 0", cache.Len())
 	}
 }

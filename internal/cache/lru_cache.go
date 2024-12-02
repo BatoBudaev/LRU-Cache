@@ -99,11 +99,17 @@ func (c *LRUCache) Get(key any) (value any, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.removeExpired()
 	if node, ok2 := c.itemsMap[key]; ok2 {
 		c.itemsList.MoveToFront(node)
+		nodeItem := node.Value.(*item)
+		if !nodeItem.Expiration.IsZero() && time.Now().After(nodeItem.Expiration) {
+			delete(c.itemsMap, key)
+			c.itemsList.Remove(node)
 
-		return node.Value.(*item).value, true
+			return nil, false
+		}
+
+		return nodeItem.value, true
 	}
 
 	return nil, false
